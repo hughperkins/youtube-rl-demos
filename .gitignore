@@ -131,4 +131,5 @@ dmypy.json
 log.txt
 _vizdoom.ini
 *.png
+vizdoom/model.pt
 

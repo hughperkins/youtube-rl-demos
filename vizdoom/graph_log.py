@@ -9,13 +9,17 @@ def run(args):
 		for line in f:
 			row = json.loads(line)
 			log_rows.append(row)
+	log_rows = [
+		row
+		for row in log_rows if args.max_episode is None or
+		row['episode'] <= args.max_episode]
 	episodes = [row['episode'] for row in log_rows]
 	losses = [row['reward'] for row in log_rows]
 	# plt.plot(episodes, losses)
 	# plt.savefig('vizdoom/graph.png')
 	episodes_avg = []
 	losses_avg = []
-	average_over = 10
+	average_over = 50
 	num_batches = len(episodes) // average_over
 	for b in range(num_batches):
 		b_start = b * average_over
@@ -30,7 +34,7 @@ def run(args):
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
-	parser.add_argument(
-		'--in-logfile', type=str, default='log.txt')
+	parser.add_argument('--in-logfile', type=str, default='log.txt')
+	parser.add_argument('--max-episode', type=int)
 	args = parser.parse_args()
 	run(args)
