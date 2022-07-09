@@ -130,6 +130,9 @@ dmypy.json
 
 log.txt
 _vizdoom.ini
-*.png
+# *.png
 vizdoom/model.pt
+vizdoom/graph.png
+pull/
+.DS_Store
 

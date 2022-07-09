@@ -29,6 +29,8 @@ def run(args):
 		episodes_avg.append(avg_episode)
 		losses_avg.append(avg_loss)
 	plt.plot(episodes_avg, losses_avg)
+	plt.xlabel('episode')
+	plt.ylabel(args.y_axis)
 	plt.savefig('vizdoom/graph.png')
 
 
@@ -36,5 +38,6 @@ if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--in-logfile', type=str, default='log.txt')
 	parser.add_argument('--max-episode', type=int)
+	parser.add_argument('--y-axis', choices=['reward', 'loss'], default='reward')
 	args = parser.parse_args()
 	run(args)
