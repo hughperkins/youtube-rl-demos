@@ -12,7 +12,7 @@ def run(args):
 	log_rows = [
 		row
 		for row in log_rows if args.max_batch is None or
-		row['batch'] <= args.max_episode]
+		row['batch'] <= args.max_batch]
 	episodes = [row['batch'] for row in log_rows]
 	values = [row[args.y_axis] for row in log_rows]
 	plt.plot(episodes, values)
