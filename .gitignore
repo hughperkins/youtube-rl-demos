@@ -135,4 +135,5 @@ vizdoom/model.pt
 vizdoom/graph.png
 pull/
 .DS_Store
-
+aws_push.sh
+aws_pull.sh
