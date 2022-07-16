@@ -96,7 +96,7 @@ def run(args):
     # the sound is only useful for humans watching the game.
 
     # Sets the living reward (for each move) to -1
-    game.set_living_reward(-1)
+    # game.set_living_reward(-1)
 
     # Sets ViZDoom mode (PLAYER, ASYNC_PLAYER, SPECTATOR, ASYNC_SPECTATOR, PLAYER mode is default)
     game.set_mode(vzd.Mode.PLAYER)
@@ -138,8 +138,8 @@ def run(args):
         game.new_episode()
 
         action_log_probs = []
-        last_health = None
-        print('=== new episode === ')
+        # last_health = None
+        # print('=== new episode === ')
         while not game.is_episode_finished():
 
             # Gets the state
@@ -157,10 +157,10 @@ def run(args):
             sectors = state.sectors
 
             # print('vars', vars, type(vars))
-            health = vars[0].item()
-            if health != last_health:
-                print('health', health)
-                last_health = health
+            # health = vars[0].item()
+            # if health != last_health:
+            #     print('health', health)
+            #     last_health = health
             # health = varsvzd.GameVariable.HEALTH
 
             screen_buf_t = torch.from_numpy(screen_buf) / 255
