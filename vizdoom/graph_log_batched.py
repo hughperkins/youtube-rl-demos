@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import json
 import argparse
+import os
 
 
 def run(args):
@@ -31,12 +32,15 @@ def run(args):
 	# plt.plot(episodes_avg, losses_avg)
 	plt.xlabel('batch')
 	plt.ylabel(args.y_axis)
-	plt.savefig('vizdoom/graph.png')
+	plt.savefig(args.out_imagefile)
+	if os.uname()[0] == 'Darwin':
+		os.system(f'open {args.out_imagefile}')
 
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--in-logfile', type=str, default='log.txt')
+	parser.add_argument('--out-imagefile', type=str, default='vizdoom/graph.png')
 	parser.add_argument('--max-batch', type=int)
 	parser.add_argument('--y-axis', choices=[
 		'reward', 'loss', 'argmax_action_prop'], default='reward')
