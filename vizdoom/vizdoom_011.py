@@ -258,7 +258,7 @@ def run(args):
             batch_loss = 0.0
             batch_reward = 0.0
             batch_argmax_action_prop = 0.0
-        if i % 10000 == 0:
+        if i % 512 == 0:
             torch.save(model, args.model_path)
             print('saved model')
         i += 1
