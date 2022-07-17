@@ -9,9 +9,12 @@ from torch import nn, optim, distributions
 from vizdoom_lib.model import Net
 import torch.nn.functional as F
 import argparse
+from vizdoom_lib.scenarios import scenarios
 
 
 def run(args):
+    scenario = scenarios[args.scenario_name]
+
     # Create DoomGame instance. It will run the game and communicate with you.
     game = vzd.DoomGame()
 
@@ -22,7 +25,8 @@ def run(args):
 
     # Sets path to additional resources wad file which is basically your scenario wad.
     # If not specified default maps will be used and it's pretty much useless... unless you want to play good old Doom.
-    game.set_doom_scenario_path(os.path.join(vzd.scenarios_path, "defend_the_center.wad"))
+    game.set_doom_scenario_path(
+        os.path.join(vzd.scenarios_path, scenario['scenario_filename']))
 
     # Sets map to start (scenario .wad files can contain many maps).
     game.set_doom_map("map01")
@@ -68,7 +72,7 @@ def run(args):
     # game.add_available_button(vzd.Button.ATTACK)
     # Or by setting them all at once:
     # game.set_available_buttons([vzd.Button.MOVE_LEFT, vzd.Button.MOVE_RIGHT, vzd.Button.ATTACK])
-    game.set_available_buttons([vzd.Button.TURN_LEFT, vzd.Button.TURN_RIGHT, vzd.Button.ATTACK])
+    game.set_available_buttons(scenario['buttons'])
     # Buttons that will be used can be also checked by:
     print("Available buttons:", [b.name for b in game.get_available_buttons()])
 
@@ -96,7 +100,7 @@ def run(args):
     # the sound is only useful for humans watching the game.
 
     # Sets the living reward (for each move) to -1
-    # game.set_living_reward(-1)
+    game.set_living_reward(scenario['living_reward'])
 
     # Sets ViZDoom mode (PLAYER, ASYNC_PLAYER, SPECTATOR, ASYNC_SPECTATOR, PLAYER mode is default)
     game.set_mode(vzd.Mode.PLAYER)
@@ -132,6 +136,7 @@ def run(args):
     i = 0
     batch_loss = 0.0
     batch_reward = 0.0
+    batch_argmax_action_prop = 0.0
     while True:
 
         # Starts a new episode. It is not needed right after init() but it doesn't cost much. At least the loop is nicer.
@@ -140,6 +145,9 @@ def run(args):
         action_log_probs = []
         # last_health = None
         # print('=== new episode === ')
+        episode_entropy = 0.0
+        episode_steps = 0
+        episode_argmax_action_taken = 0
         while not game.is_episode_finished():
 
             # Gets the state
@@ -172,6 +180,17 @@ def run(args):
             # [N][C][H][W]
             action_logits = model(screen_buf_t)
             action_probs = F.softmax(action_logits)
+            # 0.0 0.0 1.0 => low entropy
+            # argmax=2
+            #         2
+            # % of time the sample matches argmax = 100%
+            # 0.1 0.1 0.8 => higher entropy
+            #   0  1   2
+            # % of time the sample matches argmax = 80%
+            action_log_probs_product = action_probs * action_probs.log()
+            step_entropy = (- action_log_probs_product).sum(1).sum()
+
+            episode_entropy += step_entropy
             # print('action_probs', action_probs)
             m = distributions.Categorical(action_probs)
             action = m.sample()
@@ -179,6 +198,10 @@ def run(args):
             # print('log_prob', log_prob)
             action_log_probs.append(log_prob)
             action = action.item()
+            _, argmax_action = action_probs.max(dim=-1)
+            argmax_action = argmax_action.item()
+            if argmax_action == action:
+                episode_argmax_action_taken += 1
 
             # Games variables can be also accessed via
             # (including the ones that were not added as available to a game state):
@@ -199,31 +222,42 @@ def run(args):
             if sleep_time > 0:
                 sleep(sleep_time)
 
+            episode_steps += 1
+
         # Check how the episode went.
         episode_reward = game.get_total_reward()
-        episode_reward = episode_reward / 100
+        # episode_reward = episode_reward / 100
         per_timestep_losses = [- log_prob * episode_reward for log_prob in action_log_probs]
         per_timestep_losses_t = torch.stack(per_timestep_losses)
         # print('per_timestep_losses_t', per_timestep_losses_t)
-        loss = per_timestep_losses_t.sum()
-        loss.backward()
-        batch_loss = batch_loss + loss.item()
-        batch_reward = batch_reward + game.get_total_reward()
+        reward_loss = per_timestep_losses_t.sum()
+        entropy_loss = - args.ent_reg * episode_entropy
+        episode_argmax_action_prop = episode_argmax_action_taken / episode_steps
+        total_loss = reward_loss + entropy_loss
+        total_loss.backward()
+        batch_loss += total_loss.item()
+        batch_reward += game.get_total_reward()
+        batch_argmax_action_prop += episode_argmax_action_prop
         if (i + 1) % args.accumulate_episodes == 0:
             b = i // args.accumulate_episodes
             batch_avg_reward = batch_reward / args.accumulate_episodes
             batch_avg_loss = batch_loss / args.accumulate_episodes
-            print('batch', b, 'reward %.1f' % batch_avg_reward, 'loss %.4f' % batch_avg_loss)
+            batch_avg_argmax_action_prop = batch_argmax_action_prop / args.accumulate_episodes
+            print(
+                'batch', b, 'reward %.1f' % batch_avg_reward, 'loss %.4f' % batch_avg_loss,
+                'argmax_prop %.3f' % batch_avg_argmax_action_prop)
             opt.step()
             opt.zero_grad()
             out_f.write(json.dumps({
                 'batch': b,
                 'loss': batch_avg_loss,
+                'argmax_action_prop': batch_avg_argmax_action_prop,
                 'reward': batch_avg_reward
             }) + '\n')
             out_f.flush()
             batch_loss = 0.0
             batch_reward = 0.0
+            batch_argmax_action_prop = 0.0
         if i % 10000 == 0:
             torch.save(model, args.model_path)
             print('saved model')
@@ -242,5 +276,10 @@ if __name__ == "__main__":
     parser.add_argument('--model-path', type=str, default='vizdoom/models/model.pt')
     parser.add_argument('--log-path', type=str, default='vizdoom/logs/log.txt')
     parser.add_argument('--visible', action='store_true')
+    parser.add_argument(
+        '--ent-reg', type=float, default=0.001,
+        help='entropy regularization, encourages exploration')
+    parser.add_argument('--scenario-name', type=str, help='name of scenario')
     args = parser.parse_args()
+    assert args.scenario_name in scenarios
     run(args)

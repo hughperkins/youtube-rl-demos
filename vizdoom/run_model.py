@@ -6,6 +6,7 @@ from torch import nn, distributions
 from vizdoom_lib.model import Net
 import torch.nn.functional as F
 import argparse
+from vizdoom_lib.scenarios import scenarios
 
 
 def run(args):
@@ -19,7 +20,9 @@ def run(args):
 
     # Sets path to additional resources wad file which is basically your scenario wad.
     # If not specified default maps will be used and it's pretty much useless... unless you want to play good old Doom.
-    game.set_doom_scenario_path(os.path.join(vzd.scenarios_path, "basic.wad"))
+    scenario = scenarios[args.scenario_name]
+    game.set_doom_scenario_path(os.path.join(
+        vzd.scenarios_path, scenario['scenario_filename']))
 
     # Sets map to start (scenario .wad files can contain many maps).
     game.set_doom_map("map01")
@@ -64,7 +67,7 @@ def run(args):
     # game.add_available_button(vzd.Button.MOVE_RIGHT)
     # game.add_available_button(vzd.Button.ATTACK)
     # Or by setting them all at once:
-    game.set_available_buttons([vzd.Button.MOVE_LEFT, vzd.Button.MOVE_RIGHT, vzd.Button.ATTACK])
+    game.set_available_buttons(scenario['buttons'])
     # Buttons that will be used can be also checked by:
     print("Available buttons:", [b.name for b in game.get_available_buttons()])
 
@@ -91,7 +94,7 @@ def run(args):
     # the sound is only useful for humans watching the game.
 
     # Sets the living reward (for each move) to -1
-    game.set_living_reward(-1)
+    game.set_living_reward(scenario['living_reward'])
 
     # Sets ViZDoom mode (PLAYER, ASYNC_PLAYER, SPECTATOR, ASYNC_SPECTATOR, PLAYER mode is default)
     game.set_mode(vzd.Mode.PLAYER)
@@ -177,5 +180,7 @@ def run(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--in-model-path', type=str, required=True)
+    parser.add_argument('--scenario-name', type=str, default='basic', help='name of scenario')
     args = parser.parse_args()
+    assert args.scenario_name in scenarios
     run(args)
