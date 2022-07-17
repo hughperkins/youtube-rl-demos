@@ -38,6 +38,7 @@ if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--in-logfile', type=str, default='log.txt')
 	parser.add_argument('--max-batch', type=int)
-	parser.add_argument('--y-axis', choices=['reward', 'loss'], default='reward')
+	parser.add_argument('--y-axis', choices=[
+		'reward', 'loss', 'argmax_action_prop'], default='reward')
 	args = parser.parse_args()
 	run(args)
