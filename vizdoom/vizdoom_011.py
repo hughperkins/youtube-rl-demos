@@ -82,11 +82,13 @@ def run(args):
     # game.add_available_game_variable(vzd.GameVariable.AMMO2)
     # Or:
     # game.set_available_game_variables([vzd.GameVariable.AMMO2])
-    game.set_available_game_variables([vzd.GameVariable.HEALTH])
+    game.set_available_game_variables([
+        vzd.GameVariable.HEALTH, vzd.GameVariable.AMMO2])
     print("Available game variables:", [v.name for v in game.get_available_game_variables()])
 
     # Causes episodes to finish after 200 tics (actions)
-    game.set_episode_timeout(200)
+    if scenario['episode_timeout'] is not None:
+        game.set_episode_timeout(scenario['episode_timeout'])
 
     # Makes episodes start after 10 tics (~after raising the weapon)
     game.set_episode_start_time(10)
@@ -121,9 +123,6 @@ def run(args):
         [False, False, True]
     ]
 
-    # Run this many episodes
-    # episodes = 1000000
-
     # Sets time that will pause the engine after each action (in seconds)
     # Without this everything would go too fast for you to keep track of what's happening.
     # sleep_time = 1.0 / vzd.DEFAULT_TICRATE  # = 0.028
@@ -143,8 +142,9 @@ def run(args):
         game.new_episode()
 
         action_log_probs = []
-        # last_health = None
-        # print('=== new episode === ')
+        last_var_values_str = ''
+        if args.visible:
+            print('=== new episode === ')
         episode_entropy = 0.0
         episode_steps = 0
         episode_argmax_action_taken = 0
@@ -164,6 +164,13 @@ def run(args):
             objects = state.objects
             sectors = state.sectors
 
+            var_values_str = ' '.join([
+                f'{v:.3f}' for v in vars])
+
+            if var_values_str != last_var_values_str:
+                if args.visible:
+                    print(var_values_str)
+                last_var_values_str = var_values_str
             # print('vars', vars, type(vars))
             # health = vars[0].item()
             # if health != last_health:
@@ -191,11 +198,9 @@ def run(args):
             step_entropy = (- action_log_probs_product).sum(1).sum()
 
             episode_entropy += step_entropy
-            # print('action_probs', action_probs)
             m = distributions.Categorical(action_probs)
             action = m.sample()
             log_prob = m.log_prob(action)
-            # print('log_prob', log_prob)
             action_log_probs.append(log_prob)
             action = action.item()
             _, argmax_action = action_probs.max(dim=-1)
@@ -224,12 +229,15 @@ def run(args):
 
             episode_steps += 1
 
-        # Check how the episode went.
-        episode_reward = game.get_total_reward()
-        # episode_reward = episode_reward / 100
+        reward_scaling = scenario['reward_scaling']
+        reward_baseline = scenario['reward_baseline']
+        episode_reward = (
+            game.get_total_reward() * reward_scaling - reward_baseline)
+        if args.visible:
+            print('episode reward', game.get_total_reward())
+
         per_timestep_losses = [- log_prob * episode_reward for log_prob in action_log_probs]
         per_timestep_losses_t = torch.stack(per_timestep_losses)
-        # print('per_timestep_losses_t', per_timestep_losses_t)
         reward_loss = per_timestep_losses_t.sum()
         entropy_loss = - args.ent_reg * episode_entropy
         episode_argmax_action_prop = episode_argmax_action_taken / episode_steps
