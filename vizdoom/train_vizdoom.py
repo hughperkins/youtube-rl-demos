@@ -132,14 +132,18 @@ def run(args):
     opt = optim.RMSprop(lr=args.lr, params=model.parameters())
     out_f = open(args.log_path, 'w')
 
-    i = 0
+    episode = 0
     batch_loss = 0.0
     batch_reward = 0.0
     batch_argmax_action_prop = 0.0
     while True:
 
         # Starts a new episode. It is not needed right after init() but it doesn't cost much. At least the loop is nicer.
-        game.new_episode()
+        
+        record_filepath = None
+        if episode % args.record_every == 0:
+            record_filepath = args.record_filepath_templ.format(episode=episode)
+        game.new_episode(record_filepath)
 
         action_log_probs = []
         last_var_values_str = ''
@@ -246,8 +250,8 @@ def run(args):
         batch_loss += total_loss.item()
         batch_reward += game.get_total_reward()
         batch_argmax_action_prop += episode_argmax_action_prop
-        if (i + 1) % args.accumulate_episodes == 0:
-            b = i // args.accumulate_episodes
+        if (episode + 1) % args.accumulate_episodes == 0:
+            b = episode // args.accumulate_episodes
             batch_avg_reward = batch_reward / args.accumulate_episodes
             batch_avg_loss = batch_loss / args.accumulate_episodes
             batch_avg_argmax_action_prop = batch_argmax_action_prop / args.accumulate_episodes
@@ -266,10 +270,10 @@ def run(args):
             batch_loss = 0.0
             batch_reward = 0.0
             batch_argmax_action_prop = 0.0
-        if i % 512 == 0:
+        if episode % 512 == 0:
             torch.save(model, args.model_path)
             print('saved model')
-        i += 1
+        episode += 1
 
     # It will be done automatically anyway but sometimes you need to do it in the middle of the program...
     game.close()
@@ -284,6 +288,9 @@ if __name__ == "__main__":
     parser.add_argument('--model-path', type=str, default='vizdoom/models/model.pt')
     parser.add_argument('--log-path', type=str, default='vizdoom/logs/log.txt')
     parser.add_argument('--visible', action='store_true')
+    parser.add_argument('--record-every', type=int, default=100)
+    parser.add_argument(
+        '--record-filepath-templ', type=str, default='vizdoom/replays/replay_{episode}.lmp')
     parser.add_argument(
         '--ent-reg', type=float, default=0.001,
         help='entropy regularization, encourages exploration')
