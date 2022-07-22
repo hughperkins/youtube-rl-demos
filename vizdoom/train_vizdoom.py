@@ -108,19 +108,20 @@ def run(args):
     batch_argmax_action_prop = 0.0
     recorded_last_episode = False
     while True:
-        # Starts a new episode. It is not needed right after init() but it doesn't cost much. At least the loop is nicer.
-        if recorded_last_episode:
+        record_this_episode = (
+            args.record_every is not None and
+            args.replay_path_templ is not None and
+            episode % args.record_every == 0
+        )
+        if recorded_last_episode != record_this_episode:
             game.close()
             game.init()
         
         record_filepath = ''
-        print('episode', episode)
-        if episode % args.record_every == 0:
-            record_filepath = args.record_filepath_templ.format(episode=episode)
+        if record_this_episode:
+            print('episode', episode)
+            record_filepath = args.replay_path_templ.format(episode=episode)
             print('    recording to ' + record_filepath)
-            recorded_last_episode = True
-        else:
-            recorded_last_episode = False
 
         game.new_episode(record_filepath)
 
@@ -210,7 +211,10 @@ def run(args):
             if sleep_time > 0:
                 sleep(sleep_time)
 
+            if record_this_episode:
+                game.send_game_command('stop')
             episode_steps += 1
+        recorded_last_episode = record_this_episode
 
         reward_scaling = scenario['reward_scaling']
         reward_baseline = scenario['reward_baseline']
@@ -267,9 +271,12 @@ if __name__ == "__main__":
     parser.add_argument('--model-path', type=str, default='vizdoom/models/model.pt')
     parser.add_argument('--log-path', type=str, default='vizdoom/logs/log.txt')
     parser.add_argument('--visible', action='store_true')
-    parser.add_argument('--record-every', type=int, default=100)
     parser.add_argument(
-        '--record-filepath-templ', type=str, default='vizdoom/replays/replay_{episode}.lmp')
+        '--record-every', type=int,
+        help='record replay every this many episodes')
+    parser.add_argument(
+        '--replay-path-templ', type=str,
+        help='eg vizdoom/replays_foo{episode}.lmp')
     parser.add_argument(
         '--ent-reg', type=float, default=0.001,
         help='entropy regularization, encourages exploration')
