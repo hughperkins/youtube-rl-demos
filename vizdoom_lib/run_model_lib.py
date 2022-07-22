@@ -11,7 +11,7 @@ from vizdoom_lib import vizdoom_settings
 
 
 class ModelRunner:
-    def __init__(self, scenario_name: str):
+    def __init__(self, scenario_name: str, relative_speed: float = 1.0):
         # Create DoomGame instance. It will run the game and communicate with you.
         game = vzd.DoomGame()
 
@@ -88,8 +88,9 @@ class ModelRunner:
 
         # Sets time that will pause the engine after each action (in seconds)
         # Without this everything would go too fast for you to keep track of what's happening.
-        # sleep_time = 1.0 / vzd.DEFAULT_TICRATE  # = 0.028
-        self.sleep_time = 0.0
+        self.sleep_time = 1.0 / vzd.DEFAULT_TICRATE / relative_speed  # = 0.028
+        print('sleep time %.4f' % self.sleep_time)
+        # self.sleep_time = 0.0
 
         self.game = game
 
@@ -101,6 +102,7 @@ class ModelRunner:
         game.new_episode()
 
         action_log_probs = []
+        step = 0
         while not game.is_episode_finished():
 
             # Gets the state
@@ -125,7 +127,7 @@ class ModelRunner:
             screen_buf_t = screen_buf_t.unsqueeze(0)
             # [N][C][H][W]
             action_logits = self.model(screen_buf_t)
-            action_probs = F.softmax(action_logits)
+            action_probs = F.softmax(action_logits, dim=-1)
             m = distributions.Categorical(action_probs)
             action = m.sample()
             action = action.item()
@@ -135,11 +137,12 @@ class ModelRunner:
 
             if self.sleep_time > 0:
                 sleep(self.sleep_time)
+            step += 1
 
         # Check how the episode went.
         episode_reward = game.get_total_reward()
         # print('total reward', game.get_total_reward())
-        return {'reward': game.get_total_reward()}
+        return {'reward': game.get_total_reward(), 'steps': step}
 
     def close(self):
         self.game.close()
