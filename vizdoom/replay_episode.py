@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 
-#####################################################################
-# This script presents how to use Doom's native demo mechanism to
-# replay episodes with perfect accuracy.
-#####################################################################
+"""
+This is used to replay replays recorded during training.
+"""
 
 import os
 import argparse

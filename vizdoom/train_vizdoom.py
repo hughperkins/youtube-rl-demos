@@ -56,7 +56,6 @@ def run(args):
         vzd.GameVariable.HEALTH, vzd.GameVariable.AMMO2])
     print("Available game variables:", [v.name for v in game.get_available_game_variables()])
 
-    # Causes episodes to finish after 200 tics (actions)
     if scenario['episode_timeout'] is not None:
         game.set_episode_timeout(scenario['episode_timeout'])
 
@@ -253,9 +252,10 @@ def run(args):
             batch_loss = 0.0
             batch_reward = 0.0
             batch_argmax_action_prop = 0.0
-        if episode % 512 == 0:
-            torch.save(model, args.model_path)
-            print('saved model')
+        if episode % args.save_model_every == 0:
+            save_path = args.model_path_templ.format(episode=episode)
+            torch.save(model, save_path)
+            print(f'saved model to {save_path}')
         episode += 1
 
     # It will be done automatically anyway but sometimes you need to do it in the middle of the program...
@@ -268,7 +268,13 @@ if __name__ == "__main__":
         '--accumulate-episodes', type=int, default=16,
         help='how many episodes to accumulate gradients over before opt step')
     parser.add_argument('--lr', type=float, default=0.0004)
-    parser.add_argument('--model-path', type=str, default='vizdoom/models/model.pt')
+    parser.add_argument(
+        '--model-path-templ', type=str,
+        default='vizdoom/models/model_{episode}.pt',
+        help='can use {episode} which will be replaced by episode')
+    parser.add_argument(
+        '--save-model-every', type=int, default=1000,
+        help='how often to save model, number of episodes')
     parser.add_argument('--log-path', type=str, default='vizdoom/logs/log.txt')
     parser.add_argument('--visible', action='store_true')
     parser.add_argument(
