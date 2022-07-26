@@ -28,6 +28,7 @@ class ModelRunner:
 
         # Sets map to start (scenario .wad files can contain many maps).
         game.set_doom_map("map01")
+        game.set_sound_enabled(True)
 
         vizdoom_settings.setup_vizdoom(game)
 
