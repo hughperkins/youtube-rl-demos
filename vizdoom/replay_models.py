@@ -28,6 +28,8 @@ def run(args):
     while args.end_episode is None or episode <= args.end_episode:
         model_path = args.model_path_templ.format(
             episode=episode)
+        if not os.path.exists(model_path):
+            break
         model_runner.load_model(model_path)
         if episode == args.start_episode and args.warmup_games is not None:
             for i in range(args.warmup_games):
