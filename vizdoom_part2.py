@@ -212,7 +212,7 @@ if __name__ == "__main__":
             #game.get_game_variable(GameVariable.AMMO2)
 
             # Makes an action (here random one) and returns a reward.
-            r = game.make_action(choice(action))
+            r = game.make_action(choice(actions))
 
             # Makes a "prolonged" action and skip frames:
             # skiprate = 4
