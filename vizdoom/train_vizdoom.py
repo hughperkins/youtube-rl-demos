@@ -236,7 +236,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '--ent-reg', type=float, default=0.001,
         help='entropy regularization, encourages exploration')
-    parser.add_argument('--scenario-name', type=str, help='name of scenario')
+    parser.add_argument(
+        '--scenario-name', type=str, choices=scenarios.keys(), help='name of scenario')
     args = parser.parse_args()
-    assert args.scenario_name in scenarios
     run(args)

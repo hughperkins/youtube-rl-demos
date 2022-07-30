@@ -49,6 +49,8 @@ scenarios = {
         'map': 'map01',
         'living_reward': -0.0001,
         'episode_timeout': 2100,
+        'reward_scaling': 0,
+        'reward_baseline': -0.5,
         'available_buttons': [vzd.Button.TURN_LEFT, vzd.Button.TURN_RIGHT, vzd.Button.MOVE_FORWARD],
     },
     'predict_position': {
@@ -63,6 +65,8 @@ scenarios = {
         'map': 'map01',
         'living_reward': 1,
         'episode_timeout': None,
+        'reward_scaling': 0.01,
+        'reward_baseline': 0.5,
         'available_buttons': [vzd.Button.MOVE_LEFT, vzd.Button.MOVE_RIGHT],
     },
 }
