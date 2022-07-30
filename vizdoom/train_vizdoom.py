@@ -16,13 +16,7 @@ from vizdoom_lib import vizdoom_settings
 def run(args):
     scenario = scenarios[args.scenario_name]
 
-    # Create DoomGame instance. It will run the game and communicate with you.
     game = vzd.DoomGame()
-
-    # Now it's time for configuration!
-    # load_config could be used to load configuration instead of doing it here with code.
-    # If load_config is used in-code configuration will also work - most recent changes will add to previous ones.
-    # game.load_config("../../scenarios/basic.cfg")
 
     # Sets path to additional resources wad file which is basically your scenario wad.
     # If not specified default maps will be used and it's pretty much useless... unless you want to play good old Doom.
@@ -34,24 +28,9 @@ def run(args):
 
     vizdoom_settings.setup_vizdoom(game)
 
-    # Adds buttons that will be allowed to use.
-    # This can be done by adding buttons one by one:
-    # game.clear_available_buttons()
-    # game.add_available_button(vzd.Button.MOVE_LEFT)
-    # game.add_available_button(vzd.Button.MOVE_RIGHT)
-    # game.add_available_button(vzd.Button.ATTACK)
-    # Or by setting them all at once:
-    # game.set_available_buttons([vzd.Button.MOVE_LEFT, vzd.Button.MOVE_RIGHT, vzd.Button.ATTACK])
     game.set_available_buttons(scenario['buttons'])
-    # Buttons that will be used can be also checked by:
     print("Available buttons:", [b.name for b in game.get_available_buttons()])
 
-    # Adds game variables that will be included in state.
-    # Similarly to buttons, they can be added one by one:
-    # game.clear_available_game_variables()
-    # game.add_available_game_variable(vzd.GameVariable.AMMO2)
-    # Or:
-    # game.set_available_game_variables([vzd.GameVariable.AMMO2])
     game.set_available_game_variables([
         vzd.GameVariable.HEALTH, vzd.GameVariable.AMMO2])
     print("Available game variables:", [v.name for v in game.get_available_game_variables()])
@@ -61,31 +40,12 @@ def run(args):
 
     # Makes episodes start after 10 tics (~after raising the weapon)
     game.set_episode_start_time(10)
-
-    # Makes the window appear (turned on by default)
     game.set_window_visible(args.visible)
-
-    # Turns on the sound. (turned off by default)
-    # game.set_sound_enabled(True)
-    # Because of some problems with OpenAL on Ubuntu 20.04, we keep this line commented,
-    # the sound is only useful for humans watching the game.
-
-    # Sets the living reward (for each move) to -1
     game.set_living_reward(scenario['living_reward'])
-
-    # Sets ViZDoom mode (PLAYER, ASYNC_PLAYER, SPECTATOR, ASYNC_SPECTATOR, PLAYER mode is default)
     game.set_mode(vzd.Mode.PLAYER)
 
-    # Enables engine output to console, in case of a problem this might provide additional information.
-    #game.set_console_enabled(True)
-
-    # Initialize the game. Further configuration won't take any effect from now on.
     game.init()
 
-    # Define some actions. Each list entry corresponds to declared buttons:
-    # MOVE_LEFT, MOVE_RIGHT, ATTACK
-    # game.get_available_buttons_size() can be used to check the number of available buttons.
-    # 5 more combinations are naturally possible but only 3 are included for transparency when watching.
     actions = [
         [True, False, False],
         [False, True, False],
@@ -198,15 +158,6 @@ def run(args):
             # Makes an action (here random one) and returns a reward.
             r = game.make_action(actions[action])
 
-            # Makes a "prolonged" action and skip frames:
-            # skiprate = 4
-            # r = game.make_action(choice(actions), skiprate)
-
-            # The same could be achieved with:
-            # game.set_action(choice(actions))
-            # game.advance_action(skiprate)
-            # r = game.get_last_reward()
-
             if sleep_time > 0:
                 sleep(sleep_time)
 
@@ -258,7 +209,6 @@ def run(args):
             print(f'saved model to {save_path}')
         episode += 1
 
-    # It will be done automatically anyway but sometimes you need to do it in the middle of the program...
     game.close()
 
 
