@@ -171,7 +171,7 @@ def run(args):
         episode_reward = (
             game.get_total_reward() * reward_scaling - reward_baseline)
         if args.visible:
-            print('episode reward', game.get_total_reward())
+            print('episode reward', game.get_total_reward(), 'baseline applied', episode_reward)
 
         per_timestep_losses = [- log_prob * episode_reward for log_prob in action_log_probs]
         per_timestep_losses_t = torch.stack(per_timestep_losses)
