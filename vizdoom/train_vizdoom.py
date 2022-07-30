@@ -24,11 +24,11 @@ def run(args):
         os.path.join(vzd.scenarios_path, scenario['scenario_filename']))
 
     # Sets map to start (scenario .wad files can contain many maps).
-    game.set_doom_map("map01")
+    game.set_doom_map(scenario['map'])
 
     vizdoom_settings.setup_vizdoom(game)
 
-    game.set_available_buttons(scenario['buttons'])
+    game.set_available_buttons(scenario['available_buttons'])
     print("Available buttons:", [b.name for b in game.get_available_buttons()])
 
     game.set_available_game_variables([
