@@ -189,7 +189,10 @@ def run(args):
             batch_avg_loss = batch_loss / args.accumulate_episodes
             batch_avg_argmax_action_prop = batch_argmax_action_prop / args.accumulate_episodes
             print(
-                'batch', b, 'reward %.1f' % batch_avg_reward, 'loss %.4f' % batch_avg_loss,
+                'batch', b,
+                'reward %.1f' % batch_avg_reward,
+                'reward baselined %.3f' % (batch_avg_reward * reward_scaling - reward_baseline),
+                'loss %.4f' % batch_avg_loss,
                 'argmax_prop %.3f' % batch_avg_argmax_action_prop)
             opt.step()
             opt.zero_grad()
@@ -197,7 +200,8 @@ def run(args):
                 'batch': b,
                 'loss': batch_avg_loss,
                 'argmax_action_prop': batch_avg_argmax_action_prop,
-                'reward': batch_avg_reward
+                'reward': batch_avg_reward,
+                'baselined_reward': batch_avg_reward * reward_scaling - reward_baseline
             }) + '\n')
             out_f.flush()
             batch_loss = 0.0
