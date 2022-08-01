@@ -139,3 +139,4 @@ aws_push.sh
 aws_pull.sh
 vizdoom/replays/*
 vizdoom/models/model.pt
+tmp/
