@@ -15,6 +15,10 @@ def run(args):
 		for row in log_rows if args.max_batch is None or
 		row['batch'] <= args.max_batch]
 	episodes = [row['batch'] for row in log_rows]
+	if args.y_axis not in log_rows[0]:
+		print(f'y_axis {args.y_axis} doesnt exist')
+		print('available values', log_rows[0].keys())
+		return
 	values = [row[args.y_axis] for row in log_rows]
 	plt.plot(episodes, values)
 	# plt.savefig('vizdoom/graph.png')
@@ -32,17 +36,20 @@ def run(args):
 	# plt.plot(episodes_avg, losses_avg)
 	plt.xlabel('batch')
 	plt.ylabel(args.y_axis)
-	plt.savefig(args.out_imagefile)
+	image_filepath = args.out_imagefile.format(y_axis=args.y_axis)
+	plt.savefig(image_filepath)
+	dirname = os.path.dirname(image_filepath)
+	if not os.path.exists(dirname):
+		os.makedirs(dirname)
 	if os.uname()[0] == 'Darwin':
-		os.system(f'open {args.out_imagefile}')
+		os.system(f'open {image_filepath}')
 
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--in-logfile', type=str, default='log.txt')
-	parser.add_argument('--out-imagefile', type=str, default='vizdoom/graph.png')
+	parser.add_argument('--out-imagefile', type=str, default='tmp/graph_{y_axis}.png')
 	parser.add_argument('--max-batch', type=int)
-	parser.add_argument('--y-axis', choices=[
-		'reward', 'loss', 'argmax_action_prop'], default='reward')
+	parser.add_argument('--y-axis', default='reward')
 	args = parser.parse_args()
 	run(args)
