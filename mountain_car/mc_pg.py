@@ -12,6 +12,7 @@ from torch import nn, optim
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 from PIL import Image
+from collections import deque
 
 
 class QPredictor(nn.Module):
@@ -24,9 +25,9 @@ class QPredictor(nn.Module):
     def forward(self, state):
         # print('forward state.size()', state.size())
         x = self.h1(state)
-        x = torch.relu(x)
+        x = torch.tanh(x)
         x = self.h2(x)
-        x = torch.relu(x)
+        x = torch.tanh(x)
         x = self.h3(x)
         # print('forward x.size()', x.size())
         return x
@@ -52,6 +53,33 @@ def run(args):
     batch_reward_sum = 0.0
     batch_loss_sum = 0.0
     batch_actions_sums = [0] * 3
+    replay_buffer = deque()
+
+    def train_batch():
+        if args.replay_samples >= len(replay_buffer):
+            return 0.0
+        samples = random.sample(replay_buffer, args.replay_samples)
+        batch_loss = 0.0
+        for sample in samples:
+            # print('sample', sample)
+            state_t, state_t1, action_t, reward_t, done = map(sample.__getitem__, [
+                'state', 'new_state', 'action', 'reward', 'done'
+            ])
+            pred_qv = main_q_predictor(state_t)
+            if done:
+                target_q_t = reward_t
+            else:
+                with torch.no_grad():
+                    target_qv_t1 = target_q_predictor(state_t1)
+                    _, target_a_t1 = target_qv_t1.max(dim=-1)
+                    target_q_t = args.reward_decay * target_qv_t1[0, target_a_t1] + reward_t
+            loss = ((target_q_t - pred_qv[0, action_t]) * (target_q_t - pred_qv[0, action_t])).sqrt()
+            batch_loss += loss.item()
+            loss.backward()
+        opt.step()
+        opt.zero_grad()
+        return batch_loss
+
     for episode in itertools.count():
         state = env.reset()
         print('episode', episode)
@@ -76,6 +104,18 @@ def run(args):
             # print('new_state_t.size()', new_state_t.size())
             batch_reward_sum += reward_t
 
+            replay_buffer.append({
+                'state': state_t,
+                'action': action_t,
+                'new_state': new_state_t,
+                'reward': reward_t,
+                'done': done
+            })
+            if len(replay_buffer) > args.replay_buffer_size:
+                replay_buffer.popleft()
+
+            loss = train_batch()
+
             with torch.no_grad():
                 target_qv_t1 = target_q_predictor(new_state_t)
             _, target_a_t1 = target_qv_t1.max(dim=-1)
@@ -83,15 +123,15 @@ def run(args):
 
             # print('pred_av', pred_qv)
             # loss = target_q_t * pred_qv[0, action_t]
-            loss = ((target_q_t - pred_qv[0, action_t]) * (target_q_t - pred_qv[0, action_t])).sqrt()
-            batch_loss_sum += loss.item()
+            # loss = ((target_q_t - pred_qv[0, action_t]) * (target_q_t - pred_qv[0, action_t])).sqrt()
+            batch_loss_sum += loss
             # print('loss', loss)
-            loss.backward()
+            # loss.backward()
             if ((global_step + 1) % args.accum_grad) == 0:
                 b = global_step // args.accum_grad
-                print('batch', b, 'reward %.3f' % (batch_reward_sum / args.accum_grad))
-                opt.step()
-                opt.zero_grad()
+                # print('batch', b, 'reward %.3f' % (batch_reward_sum / args.accum_grad))
+                # opt.step()
+                # opt.zero_grad()
                 if ((b + 1) % args.copy_weights_every_batch) == 0:
                     print('copying weights to target')
                     target_q_predictor.load_state_dict(main_q_predictor.state_dict())
@@ -109,8 +149,11 @@ def run(args):
                             actions[xi, vi, _action] = 1.0
                             values[xi, vi] = _value
                     # print('actions', actions)
+                    print(values)
+                    min_v = values.min().item()
+                    max_v = values.max().item()
                     save_float_image(args.q_graphs_dir + '/actions.png', actions)
-                    save_float_image(args.q_graphs_dir + '/values.png', values)
+                    save_float_image(args.q_graphs_dir + '/values.png', (values - min_v) / (max_v - min_v))
                     plt.cla()
                     plt.plot(values[10])
                     plt.savefig(args.q_graphs_dir + '/q_v.png')
@@ -124,7 +167,7 @@ def run(args):
                     'loss': batch_loss_sum / args.accum_grad
                 }) + '\n')
                 f_logfile.flush()
-                print('batch_actions_sums', batch_actions_sums)
+                # print('batch_actions_sums', batch_actions_sums)
                 batch_actions_sums = [0] * 3
                 batch_reward_sum = 0.0
                 batch_loss_sum = 0.0
@@ -141,14 +184,16 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--render-every', type=int, default=32)
     parser.add_argument(
-        '--copy-weights-every-batch', type=int, default=16,
+        '--copy-weights-every-batch', type=int, default=32,
         help='how often to copy weightsfrom main to target')
     parser.add_argument('--logfile', type=str, required=True)
+    parser.add_argument('--replay-buffer-size', type=int, default=10000)
+    parser.add_argument('--replay-samples', type=int, default=16)
     parser.add_argument('--reward-decay', type=float, default=0.95)
-    parser.add_argument('--draw-q-every-batches', type=int, default=16)
+    parser.add_argument('--draw-q-every-batches', type=int, default=256)
     parser.add_argument('--q-graphs-dir', type=str, default='tmp/q')
     # parser.add_argument('--q-values-imagefile', type=str, default='tmp/q_values.png')
-    parser.add_argument('--accum-grad', type=int, default=16, help='Accumulate gradients over how many steps')
+    parser.add_argument('--accum-grad', type=int, default=1, help='Accumulate gradients over how many steps')
     parser.add_argument(
         '--eps', type=float, default=0.05, help='probability of random exploration action')
     args = parser.parse_args()
