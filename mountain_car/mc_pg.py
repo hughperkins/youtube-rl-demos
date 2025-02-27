@@ -28,6 +28,7 @@ class QPredictor(nn.Module):
         x = torch.tanh(x)
         x = self.h2(x)
         x = torch.tanh(x)
+        # x = F.dropout(x, 0.1)
         x = self.h3(x)
         # print('forward x.size()', x.size())
         return x
@@ -53,12 +54,16 @@ def run(args):
     batch_reward_sum = 0.0
     batch_loss_sum = 0.0
     batch_actions_sums = [0] * 3
+
     replay_buffer = deque()
+    replay_buffer_dones = deque()  # for ground truth, when we finish the episode
 
     def train_batch():
         if args.replay_samples >= len(replay_buffer):
             return 0.0
-        samples = random.sample(replay_buffer, args.replay_samples)
+        done_samples = random.sample(replay_buffer_dones, min(args.replay_samples // 2, len(replay_buffer_dones)))
+        not_done_samples = random.sample(replay_buffer, args.replay_samples - len(done_samples))
+        samples = done_samples + not_done_samples
         batch_loss = 0.0
         for sample in samples:
             # print('sample', sample)
@@ -73,7 +78,7 @@ def run(args):
                     target_qv_t1 = target_q_predictor(state_t1)
                     _, target_a_t1 = target_qv_t1.max(dim=-1)
                     target_q_t = args.reward_decay * target_qv_t1[0, target_a_t1] + reward_t
-            loss = ((target_q_t - pred_qv[0, action_t]) * (target_q_t - pred_qv[0, action_t])).sqrt()
+            loss = ((target_q_t - pred_qv[0, action_t]) * (target_q_t - pred_qv[0, action_t]) + 1e-8).sqrt()
             batch_loss += loss.item()
             loss.backward()
         opt.step()
@@ -104,15 +109,21 @@ def run(args):
             # print('new_state_t.size()', new_state_t.size())
             batch_reward_sum += reward_t
 
-            replay_buffer.append({
+            event = {
                 'state': state_t,
                 'action': action_t,
                 'new_state': new_state_t,
                 'reward': reward_t,
                 'done': done
-            })
+            }
+            if done:
+                replay_buffer_dones.append(event)
+            else:
+                replay_buffer.append(event)
             if len(replay_buffer) > args.replay_buffer_size:
                 replay_buffer.popleft()
+            if len(replay_buffer_dones) > args.replay_buffer_size:
+                replay_buffer_dones.popleft()
 
             loss = train_batch()
 
@@ -181,15 +192,15 @@ def run(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--lr', type=float, default=0.01)
+    parser.add_argument('--lr', type=float, default=0.001)
     parser.add_argument('--render-every', type=int, default=32)
     parser.add_argument(
-        '--copy-weights-every-batch', type=int, default=32,
+        '--copy-weights-every-batch', type=int, default=128,
         help='how often to copy weightsfrom main to target')
     parser.add_argument('--logfile', type=str, required=True)
     parser.add_argument('--replay-buffer-size', type=int, default=10000)
     parser.add_argument('--replay-samples', type=int, default=16)
-    parser.add_argument('--reward-decay', type=float, default=0.95)
+    parser.add_argument('--reward-decay', type=float, default=0.99)
     parser.add_argument('--draw-q-every-batches', type=int, default=256)
     parser.add_argument('--q-graphs-dir', type=str, default='tmp/q')
     # parser.add_argument('--q-values-imagefile', type=str, default='tmp/q_values.png')
